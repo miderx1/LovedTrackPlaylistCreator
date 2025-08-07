@@ -1,17 +1,12 @@
 
+from utils import convertImgTo64,selectTrack,getLastFMSongsList,FEAT_REGEX
+from PySide6.QtCore import QObject,QThread,Signal,Slot
 from PySide6.QtWidgets import QStackedWidget
-from PySide6.QtCore import QObject,QThread,Signal
+from spotipy.oauth2 import SpotifyOAuth
 from windowUi import Ui_MainWidget
 from dotenv import load_dotenv
-from pprint import pprint
-from testes import criaCsv
-from utils import convertImgTo64,selectTrack,getLastFMSongsList,FEAT_REGEX
-from spotipy.oauth2 import SpotifyOAuth
 import requests
-import base64
-import math
 import os
-import time
 
 load_dotenv()
 
@@ -45,65 +40,73 @@ def getSpotifyToken():
     # Retorna o token de acesso (string)
     return token_info['access_token']
 
-def convertSongsToSpotifyIds(songList,accessToken):
-    songList = songList
-    newSongList = []
-    totalSongs = len(songList)
-    songByFar = 0
+def convertSongsToSpotifyIds(song,accessToken):
+    song = song
+    newName = FEAT_REGEX.sub('',song['name'])
 
-    for i in songList:
-        newName = FEAT_REGEX.sub('',i['name'])
-        params = {
-            "q": f"artist:{i['artist']} track:{newName}",
-            "type": "track",
-            "limit": 5
-        }
-        headers = {"Authorization": f"Bearer {accessToken}"}
-        foundSong = requests.get(f'https://api.spotify.com/v1/search',
-                                headers=headers,
-                                params=params)
+    params = {
+        "q": f"artist:{song['artist']} track:{newName}",
+        "type": "track",
+        "limit": 5
+    }
+
+    headers = {"Authorization": f"Bearer {accessToken}"}
+    foundSong = requests.get(f'https://api.spotify.com/v1/search',
+                            headers=headers,
+                            params=params)
 
 
-        # if not foundSong.json()['tracks']['items']:
-        #     newName = FEAT_REGEX.sub('',i['name'])
-        #     params['q'] = f"artist:{i['artist']} track:{newName}"
+    foundSongList = []
+    for j in foundSong.json()['tracks']['items']:
+        foundSongDict = dict(
+            name = j['name'],
+            artist = j['artists'][0]['name'],
+            album = j['album']['name'],
+            albumType = j['album']['album_type'],
+            albumArtist = j['album']['artists'][0]['name'],
+            id = j['id'],
+            explict = j['explicit']
+        )
+        foundSongList.append(foundSongDict)
 
-        #     foundSong = requests.get(f'https://api.spotify.com/v1/search',
-        #                         headers=headers,
-        #                         params=params)
-            
-        songByFar += 1
-        perc = round((songByFar/totalSongs)*100,2)
+    songId = selectTrack(foundSongList,song)
 
+    return songId
+
+def splitList(list):
+    list1 = []
+    list2 = []
+
+    for index,item in enumerate(list):
+        if index <= len(list)/2:
+            list1.append(item)
+        else:
+            list2.append(item)
+
+    return [list1,list2],len(list)
+
+class Worker(QObject):
+    started = Signal()
+    progressed = Signal(dict,str)
+    finished = Signal()
+
+    def __init__(self,token):
+        super().__init__()
+        self._token = token
+        self._songs = []
+
+    def setSongs(self,songs):
+        self._songs = songs
+
+    @Slot()
+    def execute(self):   
+        self.started.emit()
         
-        # print(f'{perc}% - Adicionando {i['artist']} - {i['name']}')
-        # for y in foundSong.json()['tracks']['items']:
-        #     print(f'Encontrado {y['name']} - {y['artists'][0]['name']}- {y['album']['name']} ')
-        #     if not y:
-        #         print(f'não encontrado a musica {i['artist']} - {i['name']}')
-        # print('\n')
+        for song in self._songs:
+            songId = convertSongsToSpotifyIds(song, self._token)
+            self.progressed.emit(song, songId)
 
-        foundSongList = []
-        for j in foundSong.json()['tracks']['items']:
-            foundSongDict = dict(
-                name = j['name'],
-                artist = j['artists'][0]['name'],
-                album = j['album']['name'],
-                albumType = j['album']['album_type'],
-                albumArtist = j['album']['artists'][0]['name'],
-                id = j['id'],
-                explict = j['explicit']
-            )
-            foundSongList.append(foundSongDict)
-
-        songId = selectTrack(foundSongList,i)
-
-        if songId: newSongList.append(songId)
-        # newSongList.append(foundSongList)
-        
-
-    # exit()# finalList,self._missingSong = selectTrack(newSongList)
-    return newSongList
+        self.finished.emit()
 
 class MainPage(Ui_MainWidget, QStackedWidget):
     def __init__(self,parent = None):
@@ -113,11 +116,120 @@ class MainPage(Ui_MainWidget, QStackedWidget):
         self._spotifyToken = ''
         self._missingSong = []
         self._percent = 0
+        self._songIdList = []
+        self._totalSong = 0
+        self._threadsFinished = 0
+        self._totalThreads = 2
+        self._userImg = None
 
         self.progressBar.setVisible(False)
         self.progressLabel.setVisible(False)
         self.loginButton.clicked.connect(self.loginOnSpotify)
         self.userButton.clicked.connect(self.createPlaylist)
+
+    def hardwork(self,songs):
+        self._worker = Worker(self._spotifyToken)
+        self._thread = QThread()
+        
+        worker = self._worker
+        thread = self._thread
+        worker.setSongs(songs)
+
+        worker.moveToThread(thread)
+
+        thread.started.connect(worker.execute)
+
+        worker.finished.connect(thread.quit)
+
+        thread.finished.connect(thread.deleteLater)
+        worker.finished.connect(worker.deleteLater)
+
+        worker.started.connect(self.workerStarted)
+        worker.progressed.connect(self.workerProgressed)
+        worker.finished.connect(self.workerFinished)
+
+        thread.start()
+    def hardwork2(self,songs):
+        self._worker2 = Worker(self._spotifyToken)
+        self._thread2 = QThread()
+        
+        worker2 = self._worker2
+        thread2 = self._thread2
+
+        worker2.setSongs(songs)
+        
+        worker2.moveToThread(thread2)
+
+        thread2.started.connect(worker2.execute)
+
+        worker2.finished.connect(thread2.quit)
+
+        thread2.finished.connect(thread2.deleteLater)
+        worker2.finished.connect(worker2.deleteLater)
+
+        worker2.started.connect(self.workerStarted)
+        worker2.progressed.connect(self.workerProgressed)
+        worker2.finished.connect(self.workerFinished)
+
+        thread2.start()
+
+
+    def workerStarted(self):
+        print('Processo Iniciado')
+        self.userButton.setDisabled(True)
+        self.userInput.setDisabled(True)
+
+    def workerProgressed(self,song,songId):
+        if songId:
+            self._songIdList.append(songId)
+        self._percent = round((len(self._songIdList) / self._totalSong)*100,2)
+        print(f'{self._percent}% - {song}')
+
+    def workerFinished(self):
+
+        self._threadsFinished += 1
+        print(f'Thread finalizada ({self._threadsFinished}/{self._totalThreads})')
+
+        if self._threadsFinished == self._totalThreads:
+            print('100% - Todas as threads finalizaram')
+            print(self._songIdList)
+            self.continueExec()
+
+    def continueExec(self):
+        user = self.userInput.text()
+        print("OOOOOOOOOOOOOOIIIIIIIIIIIIIIIIIIIIIIII")
+
+        print(self._userImg)
+        img = convertImgTo64(self._userImg)
+        image_headers = {
+                        "Authorization": f"Bearer {self._spotifyToken}",
+                        "Content-Type": "image/png"
+                        }
+        
+
+
+        playlistUrl = f'https://api.spotify.com/v1/users/{self._userId}/playlists'
+
+        headers = {
+                    "Authorization": f"Bearer {self._spotifyToken}",
+                    "Content-Type": "application/json"
+        }
+        data = {
+                "name": f"Musicas favoritas de {user}",
+                "description": f"Musicas marcadas como favoritas no perfil de {user}, no Last.FM",
+                "public": 'false'
+        } 
+
+        request = (requests.post(playlistUrl, headers=headers, json=data)).json()
+
+        imgUrl = f"https://api.spotify.com/v1/playlists/{request['id']}/images"
+
+        imgRequest = requests.put(imgUrl, headers=image_headers, data=img)
+        self.addSongsToPlaylist(request['id'])
+
+        print('Playlist criada com sucesso')
+        print(imgRequest.status_code)
+
 
     def loginOnSpotify(self):
         self._spotifyToken = getSpotifyToken()
@@ -136,41 +248,17 @@ class MainPage(Ui_MainWidget, QStackedWidget):
         userUrl = f'https://ws.audioscrobbler.com/2.0/?method=user.getinfo&user={user}&api_key={apiKey}&format=json'
 
         userData = requests.get(userUrl)
-        userImg = userData.json()['user']['image'][2]['#text']
-        print(userImg)
-        img = convertImgTo64(userImg)
-        image_headers = {
-                        "Authorization": f"Bearer {self._spotifyToken}",
-                        "Content-Type": "image/png"
-                        }
+        self._userImg = userData.json()['user']['image'][2]['#text']
+        songs = getLastFMSongsList(url)
+        splitedSongs,self._totalSong = splitList(songs)
+        
+        self.hardwork(splitedSongs[0])
+        self.hardwork2(splitedSongs[1])
         
 
-        songs = getLastFMSongsList(url)
-        idList = convertSongsToSpotifyIds(songs,self._spotifyToken)
-        playlistUrl = f'https://api.spotify.com/v1/users/{self._userId}/playlists'
+    def addSongsToPlaylist(self,playlistId):
+        print(self._songIdList)
 
-        headers = {
-                    "Authorization": f"Bearer {self._spotifyToken}",
-                    "Content-Type": "application/json"
-        }
-        data = {
-                "name": f"Musicas favoritas de {user}",
-                "description": f"Musicas marcadas como favoritas no perfil de {user}, no Last.FM",
-                "public": False
-        } 
-
-        request = (requests.post(playlistUrl, headers=headers, json=data)).json()
-
-        imgUrl = f"https://api.spotify.com/v1/playlists/{request['id']}/images"
-
-        imgRequest = requests.put(imgUrl, headers=image_headers, data=img)
-        self.addSongsToPlaylist(idList,request['id'])
-
-        print('Playlist criada com sucesso')
-        print(imgRequest.status_code)
-
-
-    def addSongsToPlaylist(self,songIdList,playlistId):
         url = f'https://api.spotify.com/v1/playlists/{playlistId}/tracks'
         headers = {
             "Authorization": f"Bearer {self._spotifyToken}",
@@ -178,17 +266,20 @@ class MainPage(Ui_MainWidget, QStackedWidget):
 
         params = {'uris': []}
         songCounter = 0
-        for index,i in enumerate(songIdList):
+
+        for index,i in enumerate(self._songIdList):
             songCounter += 1
             params['uris'].append(f'spotify:track:{i}')
 
-            if songCounter == 100 or index == len(songIdList)-1:
+            if songCounter == 100 or index == len(self._songIdList)-1:
                 response = requests.post(url,headers=headers,json=params)
                 print(response.status_code)
                 params = {'uris': []}
+                print(params)
                 songCounter = 0
 
-
+        self.userInput.setDisabled(False)
+        self.userButton.setDisabled(False)
 
         
 if __name__ == '__main__':...

@@ -2,7 +2,6 @@ import requests
 import math
 import base64
 import re
-import pprint
 
 MOVIE_INDICATOR_REGEX = re.compile(r'\s[\(\[\-]\s?[fF]rom[^\-)]*[\]\)]?$'
                     ,flags=re.I)
