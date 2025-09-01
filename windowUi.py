@@ -16,8 +16,8 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QApplication, QGridLayout, QHBoxLayout, QLabel,
-    QLineEdit, QProgressBar, QPushButton, QSizePolicy,
-    QSpacerItem, QStackedWidget, QWidget)
+    QLineEdit, QPlainTextEdit, QProgressBar, QPushButton,
+    QSizePolicy, QSpacerItem, QStackedWidget, QWidget)
 
 class Ui_MainWidget(object):
     def setupUi(self, MainWidget):
@@ -55,46 +55,61 @@ class Ui_MainWidget(object):
         self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
         self.gridLayout = QGridLayout()
         self.gridLayout.setObjectName(u"gridLayout")
+        self.horizontalSpacer_3 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.gridLayout.addItem(self.horizontalSpacer_3, 5, 0, 1, 1)
+
+        self.userLabel = QLabel(self.mainPage)
+        self.userLabel.setObjectName(u"userLabel")
+        self.userLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.gridLayout.addWidget(self.userLabel, 5, 1, 1, 1)
+
         self.mainPageTitle = QLabel(self.mainPage)
         self.mainPageTitle.setObjectName(u"mainPageTitle")
         self.mainPageTitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.gridLayout.addWidget(self.mainPageTitle, 0, 1, 1, 1)
 
-        self.horizontalSpacer_3 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.gridLayout.addItem(self.horizontalSpacer_3, 3, 0, 1, 1)
-
-        self.userInput = QLineEdit(self.mainPage)
-        self.userInput.setObjectName(u"userInput")
-
-        self.gridLayout.addWidget(self.userInput, 4, 1, 1, 1)
-
-        self.userButton = QPushButton(self.mainPage)
-        self.userButton.setObjectName(u"userButton")
-
-        self.gridLayout.addWidget(self.userButton, 5, 1, 1, 1)
-
         self.progressLabel = QLabel(self.mainPage)
         self.progressLabel.setObjectName(u"progressLabel")
 
         self.gridLayout.addWidget(self.progressLabel, 1, 1, 1, 1)
 
+        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+
+        self.gridLayout.addItem(self.verticalSpacer, 4, 1, 1, 1)
+
         self.horizontalSpacer_4 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
-        self.gridLayout.addItem(self.horizontalSpacer_4, 3, 2, 1, 1)
+        self.gridLayout.addItem(self.horizontalSpacer_4, 5, 2, 1, 1)
 
-        self.userLabel = QLabel(self.mainPage)
-        self.userLabel.setObjectName(u"userLabel")
-        self.userLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.progressLog = QPlainTextEdit(self.mainPage)
+        self.progressLog.setObjectName(u"progressLog")
+        self.progressLog.setReadOnly(True)
 
-        self.gridLayout.addWidget(self.userLabel, 3, 1, 1, 1)
+        self.gridLayout.addWidget(self.progressLog, 3, 1, 1, 1)
+
+        self.userButton = QPushButton(self.mainPage)
+        self.userButton.setObjectName(u"userButton")
+
+        self.gridLayout.addWidget(self.userButton, 8, 1, 1, 1)
 
         self.progressBar = QProgressBar(self.mainPage)
         self.progressBar.setObjectName(u"progressBar")
         self.progressBar.setValue(24)
 
         self.gridLayout.addWidget(self.progressBar, 2, 1, 1, 1)
+
+        self.userInput = QLineEdit(self.mainPage)
+        self.userInput.setObjectName(u"userInput")
+
+        self.gridLayout.addWidget(self.userInput, 6, 1, 1, 1)
+
+        self.userInfo = QLabel(self.mainPage)
+        self.userInfo.setObjectName(u"userInfo")
+
+        self.gridLayout.addWidget(self.userInfo, 7, 1, 1, 1)
 
 
         self.horizontalLayout_3.addLayout(self.gridLayout)
@@ -112,9 +127,11 @@ class Ui_MainWidget(object):
     def retranslateUi(self, MainWidget):
         MainWidget.setWindowTitle(QCoreApplication.translate("MainWidget", u"StackedWidget", None))
         self.loginButton.setText(QCoreApplication.translate("MainWidget", u"Entre com Spotify", None))
-        self.mainPageTitle.setText(QCoreApplication.translate("MainWidget", u"Playlist Creator", None))
-        self.userButton.setText(QCoreApplication.translate("MainWidget", u"Enviar", None))
-        self.progressLabel.setText(QCoreApplication.translate("MainWidget", u"TextLabel", None))
         self.userLabel.setText(QCoreApplication.translate("MainWidget", u"Nome de usu\u00e1rio do Last.FM", None))
+        self.mainPageTitle.setText(QCoreApplication.translate("MainWidget", u"Playlist Creator", None))
+        self.progressLabel.setText(QCoreApplication.translate("MainWidget", u"TextLabel", None))
+        self.userButton.setText(QCoreApplication.translate("MainWidget", u"Enviar", None))
+        self.userInput.setPlaceholderText(QCoreApplication.translate("MainWidget", u"Usu\u00e1rio do Last.FM", None))
+        self.userInfo.setText("")
     # retranslateUi
 

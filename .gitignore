@@ -150,6 +150,7 @@ venv.bak/
 /site
 
 backup.py
+tagFix.py
 # mypy
 .mypy_cache/
 .dmypy.json
