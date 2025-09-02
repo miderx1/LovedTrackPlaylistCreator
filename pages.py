@@ -7,7 +7,7 @@ from utils import (convertImgTo64,
                    getSpotifyToken, 
                    LASTFM_APY_KEY)
 from PySide6.QtCore import QObject,QThread,Signal,Slot
-from PySide6.QtGui import QTextCursor
+from PySide6.QtGui import QTextCursor, QKeyEvent,Qt
 from PySide6.QtWidgets import QStackedWidget
 from windowUi import Ui_MainWidget
 import requests
@@ -63,6 +63,14 @@ class MainPage(Ui_MainWidget, QStackedWidget):
         self.loginButton.clicked.connect(self.loginOnSpotify)
         self.userButton.clicked.connect(self.createPlaylist)
 
+    def keyPressEvent(self, event:QKeyEvent):
+        key = event.key()
+        KEYS = Qt.Key
+        if key == KEYS.Key_Return \
+        and self.currentWidget() == self.mainPage and self.userInput.isEnabled():
+            self.createPlaylist()
+        return super().keyPressEvent(event)
+    
     def hardwork(self,songs):
         worker = Worker(self._spotifyToken)
         thread = QThread()
@@ -90,24 +98,20 @@ class MainPage(Ui_MainWidget, QStackedWidget):
         self.userInput.setDisabled(True)
 
     def workerProgressed(self,song,songId):
-        if songId == 1:
-            self.userInfo.setText('Erro de conexão')
-            self.progressLog.clear()
-            self.progressLog.insertPlainText(f'Erro de conexão. Tente Novamente')
-            return
-
+        print(songId)
         self._percent = round((len(self._songIdList) / self._totalSong)*100,2)
         self.progressBar.setVisible(True)
         self.progressBar.setValue(self._percent)
 
-
         songStr = f'{song[1]['artist']} - {song[1]['name']}'
-
 
         if songId[1] and not searchExistent(self._songIdList,songId[1]):
             self._songIdList.append(songId)
             self.progressLog.insertPlainText(f'{songStr}\n')
 
+        elif songId[1] == 1:
+            self._missingSong.append(songStr)
+        
         elif searchExistent(self._songIdList,songId[1]):
             self.progressLog.insertPlainText(f'{songStr} já existe na lista\n')
 
@@ -147,7 +151,7 @@ class MainPage(Ui_MainWidget, QStackedWidget):
 
         imgUrl = f"https://api.spotify.com/v1/playlists/{request['id']}/images"
 
-        imgRequest = requests.put(imgUrl, headers=image_headers, data=img)
+        requests.put(imgUrl, headers=image_headers, data=img)
         self.addSongsToPlaylist(request['id'])
 
 
@@ -208,6 +212,9 @@ class MainPage(Ui_MainWidget, QStackedWidget):
                 requests.post(url,headers=headers,json=params)
                 params = {'uris': []}
                 songCounter = 0
+
+        for i in self._missingSong:
+            print(i)
 
         self._missingSong = []
         self._percent = 0
